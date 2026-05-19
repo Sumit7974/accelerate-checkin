@@ -4,6 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
 import QRCode from "qrcode";
+import Image from "next/image";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -19,7 +20,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
         <h1 className="text-3xl font-bold mb-6 text-center">
-          ACCelerate'26 Registration
+          ACCelerate&apos;26 Registration
         </h1>
 
         <input
@@ -70,6 +71,13 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
+
+    if (!supabase) {
+      alert("Supabase is not configured");
+      setLoading(false);
+      return;
+    }
+
     const token = uuidv4();
 
     const { error } = await supabase
@@ -114,7 +122,14 @@ export default function RegisterPage() {
 {qrImage && (
   <div className="mt-6 text-center">
     <div className="flex justify-center">
-      <img src={qrImage} alt="QR Code" className="w-52 h-52" />
+      <Image
+        src={qrImage}
+        alt="QR Code"
+        width={208}
+        height={208}
+        className="h-52 w-52"
+        unoptimized
+      />
     </div>
 
     <a

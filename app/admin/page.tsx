@@ -9,6 +9,11 @@ export default function AdminPage() {
   const [status, setStatus] = useState("IN");
 
   const handleAttendance = async () => {
+    if (!supabase) {
+      alert("Supabase is not configured");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("attendance_logs")
       .insert([

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://ydbpcgvjvmecoykspcrl.supabase.co";
@@ -9,3 +10,12 @@ export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey
 );
+=======
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = 'https://nqxhtawwienmwrhhrehu.supabase.co'
+
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xeGh0YXd3aWVubXdyaGhyZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NzE1ODEsImV4cCI6MjA5NDQ0NzU4MX0.I4z8BVRyQCcJnWKmBmUfco7vUBxt1xkXRECFYxvQh8I'
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+>>>>>>> a6a816e (Registration and QR generation completed)

@@ -43,6 +43,7 @@ export default function AdminPage() {
   };
 
   const handleAttendance = async () => {
+<<<<<<< HEAD
     if (!participantId || !day || !status) {
       alert("Please fill all fields");
       return;
@@ -60,6 +61,14 @@ export default function AdminPage() {
     }
 
     const { data: lastLogs, error: fetchError } = await supabase
+=======
+    if (!supabase) {
+      alert("Supabase is not configured");
+      return;
+    }
+
+    const { data, error } = await supabase
+>>>>>>> 5789366e19b1adca587c007137ac87abd7ce56ef
       .from("attendance_logs")
       .select("*")
       .eq("participant_id", participantId)

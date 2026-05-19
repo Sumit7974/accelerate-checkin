@@ -20,7 +20,12 @@ const [gstAmount, setGstAmount] = useState('');
 const [payableAmount, setPayableAmount] = useState('');
   const [phone, setPhone] = useState('');
   const [college, setCollege] = useState('');
-  const handleRegister = async () => {
+const handleRegister = async () => {
+  if (!supabase) {
+    alert("Supabase is not configured");
+    return;
+  }
+
   const participantId = uuidv4();
   const { data, error } = await supabase
     .from("participants")

@@ -21,23 +21,27 @@ type AttendanceLogRow = {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { qrToken?: unknown };
+    const body = (await request.json()) as {
+      dayNumber?: unknown;
+      participantId?: unknown;
+      qrToken?: unknown;
+    };
     const qrToken = typeof body.qrToken === "string" ? body.qrToken.trim() : "";
+    const participantId =
+      typeof body.participantId === "string" ? body.participantId.trim() : "";
+    const scannedValue = qrToken || participantId;
 
-    if (!qrToken) {
+    if (!scannedValue) {
       return Response.json(createInvalidQrResult(), { status: 400 });
     }
 
     const supabase = createSupabaseServerClient();
     const now = new Date();
-    const dayNumber = getEventDayNumber(now);
-    const { startOfDay, endOfDay } = getLocalDayRange(now);
+    const dayNumber = getRequestedDayNumber(body.dayNumber, now);
 
-    const { data: participant, error: participantError } = await supabase
-      .from("participants")
-      .select("id,name,email,college,participant_id")
-      .eq("qr_token", qrToken)
-      .maybeSingle<ParticipantRow>();
+    const { participant, error: participantError } = await findParticipant(
+      scannedValue
+    );
 
     if (participantError) {
       return Response.json(
@@ -56,8 +60,7 @@ export async function POST(request: Request) {
       .from("attendance_logs")
       .select("id,status,scanned_at")
       .eq("participant_id", participant.id)
-      .gte("scanned_at", startOfDay.toISOString())
-      .lt("scanned_at", endOfDay.toISOString())
+      .eq("day_number", dayNumber)
       .in("status", ["CHECK_IN", "CHECK_OUT"])
       .order("scanned_at", { ascending: true })
       .returns<AttendanceLogRow[]>();
@@ -101,6 +104,29 @@ export async function POST(request: Request) {
 
     return Response.json({ error: message }, { status: 500 });
   }
+}
+
+async function findParticipant(scannedValue: string) {
+  const supabase = createSupabaseServerClient();
+  const selectFields = "id,name,email,college,participant_id";
+
+  const qrLookup = await supabase
+    .from("participants")
+    .select(selectFields)
+    .eq("qr_token", scannedValue)
+    .maybeSingle<ParticipantRow>();
+
+  if (qrLookup.error || qrLookup.data) {
+    return { participant: qrLookup.data, error: qrLookup.error };
+  }
+
+  const idLookup = await supabase
+    .from("participants")
+    .select(selectFields)
+    .eq("participant_id", scannedValue)
+    .maybeSingle<ParticipantRow>();
+
+  return { participant: idLookup.data, error: idLookup.error };
 }
 
 function getNextAttendanceStatus(scanCount: number): AttendanceStatus {
@@ -195,4 +221,19 @@ function getEventDayNumber(date: Date) {
   }
 
   return date.getDate();
+}
+
+function getRequestedDayNumber(value: unknown, fallbackDate: Date) {
+  const dayNumber =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+
+  if (Number.isInteger(dayNumber) && dayNumber >= 1 && dayNumber <= 3) {
+    return dayNumber;
+  }
+
+  return getEventDayNumber(fallbackDate);
 }

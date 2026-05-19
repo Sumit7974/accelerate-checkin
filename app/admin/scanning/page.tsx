@@ -15,6 +15,7 @@ type ScanHistoryItem = {
 
 const MAX_HISTORY_ITEMS = 8;
 const AUTO_CLEAR_INVALID_MS = 4500;
+const AUTO_CLEAR_SUCCESS_MS = 5500;
 
 const historyStatusStyles: Record<AttendanceStatus, string> = {
   CHECK_IN: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/25",
@@ -33,6 +34,8 @@ const historyStatusLabels: Record<AttendanceStatus, string> = {
 export default function ScanningPage() {
   const isVerifyingRef = useRef(false);
   const invalidClearTimerRef = useRef<number | null>(null);
+  const successClearTimerRef = useRef<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<1 | 2 | 3>(1);
   const [scanResult, setScanResult] = useState<AttendanceScanResult | null>(
     null
   );
@@ -48,11 +51,19 @@ export default function ScanningPage() {
     }
   }, []);
 
+  const clearSuccessTimer = useCallback(() => {
+    if (successClearTimerRef.current) {
+      window.clearTimeout(successClearTimerRef.current);
+      successClearTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       clearInvalidTimer();
+      clearSuccessTimer();
     };
-  }, [clearInvalidTimer]);
+  }, [clearInvalidTimer, clearSuccessTimer]);
 
   const addHistoryItem = useCallback((result: AttendanceScanResult) => {
     const item: ScanHistoryItem = {
@@ -72,6 +83,7 @@ export default function ScanningPage() {
     }
 
     clearInvalidTimer();
+    clearSuccessTimer();
     isVerifyingRef.current = true;
     setIsVerifying(true);
     setRequestError(null);
@@ -82,7 +94,7 @@ export default function ScanningPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ qrToken: decodedText }),
+        body: JSON.stringify({ dayNumber: selectedDay, qrToken: decodedText }),
       });
 
       const payload = (await response.json()) as
@@ -106,11 +118,14 @@ export default function ScanningPage() {
           );
           invalidClearTimerRef.current = null;
         }, AUTO_CLEAR_INVALID_MS);
+      } else {
+        successClearTimerRef.current = window.setTimeout(() => {
+          setScanResult(null);
+          successClearTimerRef.current = null;
+        }, AUTO_CLEAR_SUCCESS_MS);
       }
-    } catch (err) {
-      const fallbackResult = createClientErrorResult(
-        err instanceof Error ? err.message : "Invalid QR Code"
-      );
+    } catch {
+      const fallbackResult = createClientErrorResult();
 
       setScanResult(fallbackResult);
       setRequestError(fallbackResult.message);
@@ -131,6 +146,7 @@ export default function ScanningPage() {
 
   const clearResult = () => {
     clearInvalidTimer();
+    clearSuccessTimer();
     setScanResult(null);
     setRequestError(null);
   };
@@ -139,7 +155,7 @@ export default function ScanningPage() {
   const showDetailsPanel = scanResult && scanResult.status !== "INVALID_QR";
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-[#070a12] text-zinc-50">
+    <div className="relative min-h-full overflow-hidden bg-[#101522] text-zinc-50">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-40"
@@ -149,10 +165,10 @@ export default function ScanningPage() {
           backgroundSize: "26px 26px",
         }}
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-indigo-600/20 via-sky-500/10 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-indigo-500/25 via-sky-400/10 to-transparent" />
 
-      <header className="relative border-b border-white/10 bg-white/[0.04] px-4 py-5 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto flex w-full max-w-7xl items-start justify-between gap-4">
+      <header className="relative border-b border-white/15 bg-white/[0.08] px-4 py-5 shadow-xl shadow-black/10 backdrop-blur-xl sm:px-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
               Accelerate &apos;26
@@ -160,12 +176,19 @@ export default function ScanningPage() {
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
               Event attendance command desk
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300">
               Live QR check-in, duplicate protection, attendee verification,
               and recent scan monitoring in one operator view.
             </p>
           </div>
-          <LiveBadge active={!isVerifying} />
+          <div className="flex items-center gap-4">
+            <DaySelector
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+              disabled={isVerifying}
+            />
+            <LiveBadge active={!isVerifying} />
+          </div>
         </div>
       </header>
 
@@ -173,7 +196,7 @@ export default function ScanningPage() {
         <div className="flex min-w-0 flex-col gap-6">
           <QrScanner isVerifying={isVerifying} onScan={handleScan} />
 
-          {isVerifying && <VerificationPanel />}
+          {isVerifying && <VerificationPanel selectedDay={selectedDay} />}
 
           {showInvalidCard && (
             <InvalidQrCard
@@ -229,6 +252,10 @@ function useScanSound() {
       void context.resume();
     }
 
+    if ("vibrate" in navigator) {
+      navigator.vibrate(type === "success" ? [80] : [120, 50, 120]);
+    }
+
     activeSoundRef.current?.oscillator.stop();
     activeSoundRef.current?.gain.disconnect();
 
@@ -261,10 +288,10 @@ function useScanSound() {
   }, []);
 }
 
-function createClientErrorResult(message: string): AttendanceScanResult {
+function createClientErrorResult(): AttendanceScanResult {
   return {
     ok: false,
-    message: message === "Invalid QR Code" ? "Invalid QR Code" : "Invalid QR Code",
+    message: "Invalid QR Code",
     status: "INVALID_QR",
     scannedAt: new Date().toISOString(),
     dayNumber: new Date().getDate(),
@@ -272,23 +299,55 @@ function createClientErrorResult(message: string): AttendanceScanResult {
   };
 }
 
-function VerificationPanel() {
+function VerificationPanel({ selectedDay }: { selectedDay: 1 | 2 | 3 }) {
   return (
-    <section className="rounded-3xl border border-indigo-400/20 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl">
+    <section className="rounded-3xl border border-amber-300/30 bg-amber-300/10 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl">
       <div className="flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-200 ring-1 ring-indigo-300/20">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-transparent" />
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-100 ring-1 ring-amber-200/30">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-100 border-t-transparent" />
         </div>
         <div>
           <p className="text-base font-semibold text-white">
-            Verifying participant...
+            Checking attendance...
           </p>
-          <p className="mt-1 text-sm text-zinc-400">
-            Checking QR token, attendance status, and registration record.
+          <p className="mt-1 text-sm text-zinc-300">
+            Validating participant record for Day {selectedDay}.
           </p>
         </div>
       </div>
     </section>
+  );
+}
+
+function DaySelector({
+  disabled,
+  onSelectDay,
+  selectedDay,
+}: {
+  disabled: boolean;
+  onSelectDay: (day: 1 | 2 | 3) => void;
+  selectedDay: 1 | 2 | 3;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-1 shadow-lg shadow-black/10 backdrop-blur-xl">
+      <div className="flex gap-1">
+        {([1, 2, 3] as const).map((day) => (
+          <button
+            key={day}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelectDay(day)}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all focus:outline-none focus:ring-4 focus:ring-indigo-300/20 disabled:cursor-not-allowed disabled:opacity-60 ${
+              selectedDay === day
+                ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/25"
+                : "text-zinc-200 hover:bg-white/10"
+            }`}
+          >
+            Day {day}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -325,11 +384,11 @@ function InvalidQrCard({
 
 function RecentScanHistory({ items }: { items: ScanHistoryItem[] }) {
   return (
-    <aside className="h-fit rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl lg:sticky lg:top-6">
+    <aside className="h-fit rounded-3xl border border-white/15 bg-white/[0.09] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl lg:sticky lg:top-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-white">Recent scans</h2>
-          <p className="mt-1 text-xs text-zinc-400">Latest {MAX_HISTORY_ITEMS} desk events</p>
+          <p className="mt-1 text-xs text-zinc-300">Latest {MAX_HISTORY_ITEMS} desk events</p>
         </div>
         <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
           {items.length}
@@ -338,21 +397,21 @@ function RecentScanHistory({ items }: { items: ScanHistoryItem[] }) {
 
       <div className="mt-5 flex flex-col gap-3">
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-zinc-500">
+          <div className="rounded-2xl border border-dashed border-white/20 bg-white/[0.04] px-4 py-8 text-center text-sm text-zinc-400">
             Scans will appear here instantly.
           </div>
         ) : (
           items.map((item) => (
             <div
               key={item.id}
-              className="animate-[slideIn_260ms_ease-out] rounded-2xl border border-white/10 bg-zinc-950/50 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300/30 hover:bg-white/[0.08]"
+              className="animate-[slideIn_260ms_ease-out] rounded-2xl border border-white/15 bg-white/[0.08] p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300/40 hover:bg-white/[0.12]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">
                     {item.name}
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-zinc-400">
                     {formatTime(item.scannedAt)}
                   </p>
                 </div>

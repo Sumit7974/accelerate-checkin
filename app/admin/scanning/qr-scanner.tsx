@@ -184,7 +184,7 @@ export function QrScanner({ isVerifying = false, onScan }: Props) {
             {isVerifying && (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-100 border-t-transparent" />
             )}
-            {isVerifying ? "Verifying participant..." : "Scanning paused..."}
+            {isVerifying ? "Checking attendance..." : "Scanning paused..."}
           </div>
         )}
 
@@ -220,7 +220,7 @@ export function QrScanner({ isVerifying = false, onScan }: Props) {
           {isCoolingDown
             ? "Scanner will resume automatically"
             : isVerifying
-              ? "Verifying participant..."
+              ? "Checking attendance..."
             : "Align the QR code inside the frame"}
         </p>
         <p className="mt-1 break-all text-center text-xs text-zinc-500">

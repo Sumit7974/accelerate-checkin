@@ -104,6 +104,7 @@ export default function ScanResult({ result, onClear }: Props) {
   const participant = buildParticipantDetails(result);
   const checkInTime = getCheckInTime(result);
   const checkOutTime = getCheckOutTime(result);
+  const currentAttendance = getCurrentAttendanceState(result.status);
 
   const personalFields: FieldItem[] = [
     { label: "Email ID", value: participant.email, Icon: MailIcon },
@@ -139,7 +140,7 @@ export default function ScanResult({ result, onClear }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-      <section className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-2xl shadow-zinc-950/10 ring-1 ring-zinc-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-zinc-950/15 dark:border-white/10 dark:bg-zinc-950 dark:shadow-black/30 dark:ring-white/10">
+      <section className="overflow-hidden rounded-3xl border border-white/15 bg-white/[0.96] shadow-2xl shadow-black/20 ring-1 ring-white/20 transition-all duration-300 hover:-translate-y-0.5 dark:bg-slate-950/95">
         <div className="relative overflow-hidden border-b border-zinc-200 bg-gradient-to-br from-zinc-950 via-slate-900 to-indigo-950 px-5 py-6 text-white sm:px-7">
           <div
             aria-hidden
@@ -193,6 +194,19 @@ export default function ScanResult({ result, onClear }: Props) {
             </div>
           </div>
 
+          <div className="grid gap-3 md:grid-cols-3">
+            <SummaryItem label="Participant Name" value={participant.name} />
+            <SummaryItem
+              label="College / Institute"
+              value={participant.affiliationInstitute}
+            />
+            <SummaryItem
+              label="Current Attendance Status"
+              value={currentAttendance}
+              tone={currentAttendance === "IN" ? "success" : "danger"}
+            />
+          </div>
+
           <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
             <Panel title="Participant Profile" fields={personalFields} />
             <div className="flex flex-col gap-5">
@@ -211,6 +225,31 @@ export default function ScanResult({ result, onClear }: Props) {
         <RefreshIcon className="h-4 w-4 transition-transform duration-300 group-hover:-rotate-90" />
         Clear result
       </button>
+    </div>
+  );
+}
+
+function SummaryItem({
+  label,
+  tone = "default",
+  value,
+}: {
+  label: string;
+  tone?: "default" | "danger" | "success";
+  value: string;
+}) {
+  const toneClass = {
+    default: "border-indigo-200 bg-indigo-50 text-indigo-950 dark:border-indigo-300/20 dark:bg-indigo-400/10 dark:text-indigo-100",
+    danger: "border-red-200 bg-red-50 text-red-950 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-100",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-100",
+  }[tone];
+
+  return (
+    <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-lg font-bold">{value}</p>
     </div>
   );
 }
@@ -291,6 +330,12 @@ function getCheckOutTime(result: AttendanceScanResult) {
   }
 
   return "Pending";
+}
+
+function getCurrentAttendanceState(status: AttendanceStatus) {
+  if (status === "CHECK_IN") return "IN";
+  if (status === "CHECK_OUT" || status === "ALREADY_CHECKED_OUT") return "OUT";
+  return "INVALID";
 }
 
 function formatDateTime(value: string) {

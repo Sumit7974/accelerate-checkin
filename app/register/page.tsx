@@ -13,6 +13,7 @@ export default function RegisterPage() {
     college: "",
   });
   const [qrImage, setQrImage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -68,7 +69,7 @@ export default function RegisterPage() {
       alert("Please fill all fields");
       return;
     }
-
+    setLoading(true);
     const token = uuidv4();
 
     const { error } = await supabase
@@ -85,23 +86,44 @@ export default function RegisterPage() {
       ]);
 
     if (error) {
-      console.log("SUPABASE ERROR:", error);
-      alert("Error saving participant");
-    } else {
+  setLoading(false);
+  console.log("SUPABASE ERROR:", error);
+  alert(error.message);
+}
+ else {
   const qr = await QRCode.toDataURL(token);
-
   setQrImage(qr);
+  setLoading(false);
+
+  alert("Registration Successful");
+
+  setForm({
+    name: "",
+    email: "",
+    phone: "",
+    college: "",
+  });
 
   alert("Registration Successful");
 }
   }}
   className="w-full bg-black text-white p-3 rounded-lg"
 >
-  Register
+  {loading ? "Registering..." : "Register"}
 </button>
 {qrImage && (
-  <div className="mt-6 flex justify-center">
-    <img src={qrImage} alt="QR Code" className="w-52 h-52" />
+  <div className="mt-6 text-center">
+    <div className="flex justify-center">
+      <img src={qrImage} alt="QR Code" className="w-52 h-52" />
+    </div>
+
+    <a
+      href={qrImage}
+      download="accelerate-qr.png"
+      className="inline-block mt-4 bg-green-600 text-white px-4 py-2 rounded-lg"
+    >
+      Download QR
+    </a>
   </div>
 )}
       </div>
